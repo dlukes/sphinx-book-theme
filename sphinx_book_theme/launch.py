@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -39,6 +40,18 @@ def add_hub_urls(
     if not launch_buttons or not _is_notebook(app, pagename):
         return
 
+    # Deep copy config (so as not to modify original) and apply
+    # repository overrides, if any
+    config_theme = deepcopy(config_theme)
+    overrides = launch_buttons.get("repository_overrides", {})
+    for spx_key, yml_key in [
+        ("path_to_docs", "path_to_book"),
+        ("repository_url", "url"),
+        ("repository_branch", "branch"),
+    ]:
+        if yml_key in overrides:
+            config_theme[spx_key] = overrides[yml_key]
+
     # Check if we have a markdown notebook, and if so then add a link to the context
     if _is_notebook(app, pagename) and context["sourcename"].endswith(".md"):
         # Figure out the folders we want
@@ -76,9 +89,14 @@ def add_hub_urls(
         )
     ui_pre = notebook_interface_prefixes[notebook_interface]
 
-    # Check if we have a non-ipynb file, but an ipynb of same name exists
-    # If so, we'll use the ipynb extension instead of the text extension
-    if extension != ".ipynb" and Path(path).with_suffix(".ipynb").exists():
+    # Check if the user has forced an ipynb extension, or if we have a
+    # non-ipynb file, but an ipynb of same name exists. If so, we'll use
+    # the ipynb extension instead of the text extension
+    if (
+        overrides.get("force_ipynb")
+        or extension != ".ipynb"
+        and Path(path).with_suffix(".ipynb").exists()
+    ):
         extension = ".ipynb"
 
     # Construct a path to the file relative to the repository root
